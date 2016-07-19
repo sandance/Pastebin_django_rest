@@ -22,6 +22,10 @@ from rest_framework import generics
 from django.contrib.auth.models import User
 from rest_framework import permissions
 from snippets.permissions import IsOwnerOrReadOnly
+
+
+
+
 """
 
 class SnippetList(generics.ListCreateAPIView):
@@ -85,4 +89,23 @@ class UserList(generics.ListAPIView):
 class UserDetail(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+# creating endpoint for root
+@api_view(['GET'])
+def api_root(request, format=None):
+    return Response({
+        'users' : reverse('user-list',request=request, format=format),
+        'snippets' : reverse('snippet-list', request=request, format=format)
+    })
+
+
+#creating endpoint for highlighted snippets
+
+class SnippetHighlight(generics.GenericAPIView):
+    queryset = Snippet.objects.all()
+    renderer_classes = (renderers.StaticHTMLRenderer,)
+
+    def get(self, request, *args,**kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
 
