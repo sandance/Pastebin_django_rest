@@ -23,8 +23,8 @@ from django.contrib.auth.models import User
 from rest_framework import permissions
 from snippets.permissions import IsOwnerOrReadOnly
 
-
-
+from rest_framework import viewsets
+from rest_framework.decorators import detail_route
 
 """
 
@@ -36,7 +36,7 @@ class SnippetList(generics.ListCreateAPIView):
 class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
-    """
+
 class SnippetList(mixins.ListModelMixin,
                   mixins.CreateModelMixin,
                   generics.GenericAPIView):
@@ -77,27 +77,6 @@ class SnippetDetail(mixins.RetrieveModelMixin,
 
 
 
-    """
-    We'd like to just use read-only views for the user representations,
-     so we'll use the ListAPIView and RetrieveAPIView generic class-based views.
-    """
-
-class UserList(generics.ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-class UserDetail(generics.RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-# creating endpoint for root
-@api_view(['GET'])
-def api_root(request, format=None):
-    return Response({
-        'users' : reverse('user-list',request=request, format=format),
-        'snippets' : reverse('snippet-list', request=request, format=format)
-    })
-
 
 #creating endpoint for highlighted snippets
 
@@ -108,4 +87,57 @@ class SnippetHighlight(generics.GenericAPIView):
     def get(self, request, *args,**kwargs):
         snippet = self.get_object()
         return Response(snippet.highlighted)
+
+"""
+
+# refactoring Snippet* classes
+
+
+class SnippetViewSet (viewsets.ModelViewSet):
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+    @detail_route(renderer_classes=[renderers.StaticHTMLRenderer])
+    def highlight(self, request, *args,**kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+    """
+    We'd like to just use read-only views for the user representations,
+     so we'll use the ListAPIView and RetrieveAPIView generic class-based views.
+    """
+"""
+class UserList(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+class UserDetail(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+"""
+
+# refactoring UserList and UserDetail with UserViewSet
+
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    This viewset automatically provides list and detail actions
+
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+
+# creating endpoint for root
+@api_view(['GET'])
+def api_root(request, format=None):
+    return Response({
+        'users' : reverse('user-list',request=request, format=format),
+        'snippets' : reverse('snippet-list', request=request, format=format)
+    })
+
+
 
